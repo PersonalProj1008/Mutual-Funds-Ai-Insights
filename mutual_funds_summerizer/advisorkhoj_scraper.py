@@ -1,55 +1,68 @@
-import io
 import requests
-import pandas as pd
 from bs4 import BeautifulSoup
+import pandas as pd
+import io
+
+class FundDataError(Exception):
+    """Custom exception raised when fund data is unavailable for the selected period."""
+    pass
 
 class MarketCaptureScraper:
     def __init__(self):
         self.url = "https://www.advisorkhoj.com/mutual-funds-research/market-capture-ratio"
         self.session = requests.Session()
-        # Pretend to be a standard web browser to avoid getting blocked
         self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         })
 
     def fetch_ratios(self, category_value, scheme_value, period="3"):
-        # 1. Fetch the initial page to get any session cookies or hidden form tokens (like CSRF)
         res = self.session.get(self.url)
         soup = BeautifulSoup(res.text, 'html.parser')
         
         payload = {}
-        # Find the form and extract all hidden security tokens
         form = soup.find('form') 
         if form:
             for hidden in form.find_all("input", type="hidden"):
                 if hidden.get("name"):
                     payload[hidden.get("name")] = hidden.get("value")
                     
-        # 2. Inject our target data into the payload
-        # NOTE: You must verify these exact field names (e.g., 'category', 'scheme') 
-        # by inspecting the Network tab in your browser when you manually submit the form.
         payload['category'] = category_value  
         payload['scheme'] = scheme_value      
         payload['period'] = period            
 
-        # 3. Submit the form
         post_res = self.session.post(self.url, data=payload)
         
-        # 4. Parse the results using Pandas (the easiest way to extract HTML tables)
-        # We wrap the HTML string in io.StringIO to avoid Pandas warnings
         try:
             tables = pd.read_html(io.StringIO(post_res.text))
             
-            # Loop through the tables on the page to find the one with our ratios
             for df in tables:
-                # Check if this table contains the columns we care about
                 if "Capture Ratio" in df.columns or "Up Market Capture Ratio (%)" in df.values:
-                    # Convert the matching table to a dictionary
-                    return df.to_dict(orient='records')
+                    records = df.to_dict(orient='records')
                     
+                    # Ensure we grab the actual fund, not the benchmark/category average row
+                    for row in records:
+                        row_scheme_name = str(row.get('Scheme Name', ''))
+                        if scheme_value.lower() in row_scheme_name.lower():
+                            return row # Returns the single dict directly
+                            
+                    # Table exists, but the fund row is missing
+                    raise FundDataError(
+                        f"'{scheme_value}' was found, but lacks market capture data. "
+                        f"It likely hasn't been active for a full {period}-year period."
+                    )
+            
+            # Form submitted successfully, but no matching tables were rendered
+            raise FundDataError(
+                f"No capture ratio data generated for '{scheme_value}'. "
+                f"Verify the fund has at least {period} years of market history."
+            )
+            
         except ValueError:
-            print("No tables found in the HTML response.")
-            return None
+            # pd.read_html throws ValueError if 0 tables are found in the HTML
+            raise FundDataError(
+                f"Failed to retrieve data for '{scheme_value}'. "
+                f"The fund likely does not have a {period}-year track record."
+            )
 
     def get_categories(self):
             """
@@ -138,8 +151,9 @@ if __name__ == "__main__":
 
     print(data)
 
-
+# ########################################################
 #  Output data formats are as follows:
+# ########################################################
 
 # [{'value': 'Equity: Contra', 'label': 'Equity: Contra'}, {'value': 'Equity: Dividend Yield', 'label': 'Equity: Dividend Yield'}, {'value': 'Equity: ELSS', 'label': 'Equity: ELSS'}]
 # ['Mirae Asset Large Cap Dir Gr', 'Mirae Asset Large Cap Gr']
