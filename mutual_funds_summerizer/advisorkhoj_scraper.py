@@ -1,56 +1,56 @@
+import io
+
+import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-import pandas as pd
-import io
+from requests import RequestException
 
 
 class FundDataError(Exception):
-    """Custom exception raised when fund data is unavailable."""
+    """Raised when AdvisorKhoj fund data cannot be retrieved."""
+
     pass
 
 
 class MarketCaptureScraper:
-
     def __init__(self):
         self.url = (
             "https://www.advisorkhoj.com/"
             "mutual-funds-research/market-capture-ratio"
         )
 
-        self.session = requests.Session()
+        self.autocomplete_url = (
+            "https://www.advisorkhoj.com/"
+            "mutual-funds-research/"
+            "autoSuggestAllMfSchemesShortNames"
+        )
 
-        self.session.headers.update({
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 "
-                "(KHTML, like Gecko) "
-                "Chrome/154.0.0.0 Safari/537.36"
-            )
-        })
+        self.session = requests.Session()
+        self.session.headers.update(
+            {
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) "
+                    "Chrome/154.0.0.0 Safari/537.36"
+                )
+            }
+        )
 
         self.allowed_periods = {"1", "3", "5", "10"}
+        self.timeout = 20
 
     # ============================================================
     # 1. VALIDATE PERIOD
     # ============================================================
 
     def validate_period(self, period):
-        """
-        Validate that the requested analysis period is supported.
-
-        Supported:
-            1 year
-            3 years
-            5 years
-            10 years
-        """
-
         period = str(period).strip()
 
         if period not in self.allowed_periods:
             raise ValueError(
                 f"Invalid period '{period}'. "
-                f"Allowed periods are: 1, 3, 5, 10."
+                "Allowed periods are: 1, 3, 5, 10."
             )
 
         return period
@@ -60,52 +60,25 @@ class MarketCaptureScraper:
     # ============================================================
 
     def validate_fund_selection(self, funds):
-        """
-        Validate a list of selected funds.
-
-        Expected format:
-
-        [
-            {
-                "category": "Equity: Large Cap",
-                "scheme": "Mirae Asset Large Cap Gr"
-            },
-            {
-                "category": "Equity: Flexi Cap",
-                "scheme": "Parag Parikh Flexi Cap Gr"
-            }
-        ]
-        """
-
         if not isinstance(funds, list):
             raise ValueError("Funds must be provided as a list.")
 
         if len(funds) < 2:
-            raise ValueError(
-                "At least 2 funds must be selected."
-            )
+            raise ValueError("At least 2 funds must be selected.")
 
         if len(funds) > 10:
-            raise ValueError(
-                "A maximum of 10 funds can be selected."
-            )
+            raise ValueError("A maximum of 10 funds can be selected.")
 
         seen = set()
 
         for index, fund in enumerate(funds, start=1):
-
             if not isinstance(fund, dict):
                 raise ValueError(
                     f"Fund #{index} must be a dictionary."
                 )
 
-            category = str(
-                fund.get("category", "")
-            ).strip()
-
-            scheme = str(
-                fund.get("scheme", "")
-            ).strip()
+            category = str(fund.get("category", "")).strip()
+            scheme = str(fund.get("scheme", "")).strip()
 
             if not category:
                 raise ValueError(
@@ -117,10 +90,9 @@ class MarketCaptureScraper:
                     f"Fund #{index} is missing scheme name."
                 )
 
-            # Prevent duplicate funds
             duplicate_key = (
                 category.lower(),
-                scheme.lower()
+                scheme.lower(),
             )
 
             if duplicate_key in seen:
@@ -137,37 +109,25 @@ class MarketCaptureScraper:
     # ============================================================
 
     def fetch_multiple_ratios(self, funds, period="3"):
-        """
-        Fetch AdvisorKhoj Market Capture Ratio data
-        for multiple selected funds.
-
-        Returns a list of normalized fund dictionaries.
-        """
-
         self.validate_period(period)
         self.validate_fund_selection(funds)
 
         results = []
 
         for fund in funds:
-
-            category = fund["category"].strip()
-            scheme = fund["scheme"].strip()
+            category = str(fund["category"]).strip()
+            scheme = str(fund["scheme"]).strip()
 
             try:
                 record = self.fetch_ratios(
                     category_value=category,
                     scheme_value=scheme,
-                    period=period
+                    period=period,
                 )
 
-                normalized = self.normalize_record(record)
-
-                results.append(normalized)
+                results.append(self.normalize_record(record))
 
             except FundDataError as exc:
-
-                # Preserve which fund failed
                 raise FundDataError(
                     f"Unable to retrieve '{scheme}' "
                     f"for the {period}-year period. "
@@ -181,11 +141,6 @@ class MarketCaptureScraper:
     # ============================================================
 
     def normalize_record(self, record):
-        """
-        Convert AdvisorKhoj column names into
-        clean internal field names.
-        """
-
         required_fields = {
             "Scheme Name",
             "AMC Name",
@@ -206,297 +161,292 @@ class MarketCaptureScraper:
             )
 
         try:
-            normalized = {
-                "scheme_name": str(
-                    record["Scheme Name"]
-                ).strip(),
-
-                "amc_name": str(
-                    record["AMC Name"]
-                ).strip(),
-
-                "benchmark_name": str(
-                    record["Benchmark Name"]
-                ).strip(),
-
-                "launch_date": str(
-                    record["Launch Date"]
-                ).strip(),
-
-                "scheme_return": float(
-                    record["Scheme Return (%)"]
-                ),
-
+            return {
+                "scheme_name": str(record["Scheme Name"]).strip(),
+                "amc_name": str(record["AMC Name"]).strip(),
+                "benchmark_name": str(record["Benchmark Name"]).strip(),
+                "launch_date": str(record["Launch Date"]).strip(),
+                "scheme_return": float(record["Scheme Return (%)"]),
                 "up_capture": float(
                     record["Up Market Capture Ratio (%)"]
                 ),
-
                 "down_capture": float(
                     record["Down Market Capture Ratio (%)"]
                 ),
-
-                "capture_ratio": float(
-                    record["Capture Ratio"]
-                ),
+                "capture_ratio": float(record["Capture Ratio"]),
             }
-
         except (TypeError, ValueError) as exc:
             raise FundDataError(
-                f"Invalid numeric data returned for "
+                "Invalid numeric data returned for "
                 f"'{record.get('Scheme Name', 'Unknown Fund')}'."
             ) from exc
-
-        return normalized
 
     # ============================================================
     # 5. NORMALIZE MULTIPLE RECORDS
     # ============================================================
 
     def normalize_records(self, records):
-        """
-        Normalize a list of AdvisorKhoj records.
-        """
-
         if not isinstance(records, list):
-            raise ValueError("Records must be a list.")
+            raise ValueError("Records must be provided as a list.")
 
-        return [
-            self.normalize_record(record)
-            for record in records
-        ]
+        return [self.normalize_record(record) for record in records]
 
     # ============================================================
-    # EXISTING FUNCTIONS
+    # 6. FETCH MARKET CAPTURE DATA
     # ============================================================
 
     def fetch_ratios(
         self,
         category_value,
         scheme_value,
-        period="3"
+        period="3",
     ):
+        """
+        Fetch one fund's Market Capture Ratio from AdvisorKhoj.
 
-        self.validate_period(period)
+        IMPORTANT:
+        AdvisorKhoj expects the market-capture request as query
+        parameters using the names:
+            category
+            period
+            schemes
 
-        res = self.session.get(
-            self.url,
-            timeout=20
-        )
-        res.raise_for_status()
+        The original implementation sent `scheme` in a POST body.
+        That is why the site could return its default fund while the
+        requested fund was ignored.
+        """
+        period = self.validate_period(period)
+        category_value = str(category_value).strip()
+        scheme_value = str(scheme_value).strip()
 
-        soup = BeautifulSoup(
-            res.text,
-            "html.parser"
-        )
+        if not category_value:
+            raise ValueError("Category cannot be empty.")
 
-        payload = {}
+        if not scheme_value:
+            raise ValueError("Scheme name cannot be empty.")
 
-        form = soup.find("form")
-
-        if form:
-            for hidden in form.find_all(
-                "input",
-                type="hidden"
-            ):
-                name = hidden.get("name")
-
-                if name:
-                    payload[name] = hidden.get("value")
-
-        payload["category"] = category_value
-        payload["scheme"] = scheme_value
-        payload["period"] = period
-
-        post_res = self.session.post(
-            self.url,
-            data=payload,
-            timeout=20
-        )
-
-        post_res.raise_for_status()
+        params = {
+            "category": category_value,
+            "period": period,
+            "schemes": scheme_value,
+        }
 
         try:
-
-            tables = pd.read_html(
-                io.StringIO(post_res.text)
+            response = self.session.get(
+                self.url,
+                params=params,
+                timeout=self.timeout,
             )
-
-            required_columns = {
-                "Scheme Name",
-                "Up Market Capture Ratio (%)",
-                "Down Market Capture Ratio (%)",
-                "Capture Ratio",
-            }
-
-            for df in tables:
-
-                if required_columns.issubset(
-                    set(df.columns)
-                ):
-
-                    records = df.to_dict(
-                        orient="records"
-                    )
-
-                    # Find the exact requested scheme
-                    for row in records:
-
-                        row_scheme_name = str(
-                            row.get(
-                                "Scheme Name",
-                                ""
-                            )
-                        ).strip()
-
-                        if (
-                            row_scheme_name.lower()
-                            == scheme_value.strip().lower()
-                        ):
-                            return row
-
-                    # Fallback: partial matching
-                    for row in records:
-
-                        row_scheme_name = str(
-                            row.get(
-                                "Scheme Name",
-                                ""
-                            )
-                        ).strip()
-
-                        if (
-                            scheme_value.lower()
-                            in row_scheme_name.lower()
-                        ):
-                            return row
-
-                    raise FundDataError(
-                        f"'{scheme_value}' was found, "
-                        f"but its market capture data "
-                        f"is unavailable for the "
-                        f"{period}-year period."
-                    )
-
+            response.raise_for_status()
+        except RequestException as exc:
             raise FundDataError(
-                f"No capture ratio table generated "
-                f"for '{scheme_value}'."
-            )
-
-        except ValueError as exc:
-
-            raise FundDataError(
-                f"Failed to retrieve data for "
-                f"'{scheme_value}'. "
-                f"The fund may not have sufficient "
-                f"{period}-year history."
+                f"AdvisorKhoj request failed for '{scheme_value}'."
             ) from exc
 
+        try:
+            tables = pd.read_html(io.StringIO(response.text))
+        except ValueError as exc:
+            raise FundDataError(
+                f"AdvisorKhoj did not return an HTML table for "
+                f"'{scheme_value}'."
+            ) from exc
+
+        required_columns = {
+            "Scheme Name",
+            "AMC Name",
+            "Benchmark Name",
+            "Launch Date",
+            "Scheme Return (%)",
+            "Up Market Capture Ratio (%)",
+            "Down Market Capture Ratio (%)",
+            "Capture Ratio",
+        }
+
+        for dataframe in tables:
+            columns = set(dataframe.columns)
+
+            if not required_columns.issubset(columns):
+                continue
+
+            records = dataframe.to_dict(orient="records")
+
+            # Exact scheme match first.
+            target = scheme_value.casefold()
+
+            for row in records:
+                row_scheme = str(
+                    row.get("Scheme Name", "")
+                ).strip()
+
+                if row_scheme.casefold() == target:
+                    return row
+
+            # Safe fallback for minor formatting differences.
+            for row in records:
+                row_scheme = str(
+                    row.get("Scheme Name", "")
+                ).strip()
+
+                if target in row_scheme.casefold():
+                    return row
+
+            returned_schemes = [
+                str(row.get("Scheme Name", "")).strip()
+                for row in records
+            ]
+
+            raise FundDataError(
+                f"AdvisorKhoj returned capture data, but the requested "
+                f"scheme '{scheme_value}' was not present in the result. "
+                f"Returned schemes: {returned_schemes}"
+            )
+
+        raise FundDataError(
+            f"No Market Capture Ratio table was generated for "
+            f"'{scheme_value}'."
+        )
+
+    # ============================================================
+    # 7. GET CATEGORIES
+    # ============================================================
+
     def get_categories(self):
+        try:
+            response = self.session.get(
+                self.url,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+        except RequestException as exc:
+            raise FundDataError(
+                "Unable to retrieve AdvisorKhoj categories."
+            ) from exc
 
-        res = self.session.get(
-            self.url,
-            timeout=20
-        )
-        res.raise_for_status()
-
-        soup = BeautifulSoup(
-            res.text,
-            "html.parser"
-        )
-
+        soup = BeautifulSoup(response.text, "html.parser")
         categories = []
 
         category_select = soup.find(
             "select",
-            {
-                "id": "sel_schemeCategories"
-            }
+            {"id": "sel_schemeCategories"},
         )
 
-        if category_select:
+        if not category_select:
+            return categories
 
-            for option in category_select.find_all(
-                "option"
-            ):
+        for option in category_select.find_all("option"):
+            value = option.get("value")
+            label = option.get_text(strip=True)
 
-                val = option.get("value")
-                label = option.text.strip()
-
-                if val and val.strip():
-
-                    categories.append({
-                        "value": val.strip(),
-                        "label": label
-                    })
+            if value and value.strip():
+                categories.append(
+                    {
+                        "value": value.strip(),
+                        "label": label,
+                    }
+                )
 
         return categories
+
+    # ============================================================
+    # 8. FUND AUTOCOMPLETE
+    # ============================================================
 
     def suggest_funds(
         self,
         query,
-        category="Equity: Large Cap"
+        category="Equity: Large Cap",
     ):
-
-        ajax_url = (
-            "https://www.advisorkhoj.com/"
-            "mutual-funds-research/"
-            "autoSuggestAllMfSchemesShortNames"
-        )
-
         payload = {
-            "query": query,
-            "category": category
+            "query": str(query).strip(),
+            "category": str(category).strip(),
         }
 
         try:
-
-            res = self.session.post(
-                ajax_url,
+            response = self.session.post(
+                self.autocomplete_url,
                 data=payload,
-                timeout=20
+                timeout=self.timeout,
             )
+            response.raise_for_status()
+            data = response.json()
 
-            res.raise_for_status()
-
-            return res.json()
-
-        except Exception as exc:
-
-            print(
-                f"Error fetching suggestions "
-                f"for '{query}': {exc}"
-            )
+            if isinstance(data, list):
+                return data
 
             return []
 
+        except (RequestException, ValueError):
+            return []
 
-#  --------- E X A M P L E   U S A G E ---------
+    # ============================================================
+    # 9. RESOLVE USER ENTERED FUND NAME
+    # ============================================================
+
+    def resolve_scheme_name(self, query, category):
+        """
+        Resolve a typed fund name to the canonical AdvisorKhoj
+        scheme name when autocomplete has a matching value.
+        """
+        query = str(query).strip()
+        category = str(category).strip()
+
+        if not query:
+            raise ValueError("Fund name cannot be empty.")
+
+        suggestions = self.suggest_funds(
+            query=query,
+            category=category,
+        )
+
+        cleaned = [
+            str(item).strip()
+            for item in suggestions
+            if str(item).strip()
+        ]
+
+        target = query.casefold()
+
+        for item in cleaned:
+            if item.casefold() == target:
+                return item
+
+        if cleaned:
+            return cleaned[0]
+
+        return query
+
+
+# ================================================================
+# EXAMPLE USAGE
+# ================================================================
 
 if __name__ == "__main__":
     scraper = MarketCaptureScraper()
-    
-    # Get all categories available
-    all_categories = scraper.get_categories()
-    print(all_categories[:3])
 
-    # Get Fund Scheme name suggestions
-    results = scraper.suggest_funds(query="Mir", category="Equity: Large Cap")
-    print(results)
+    # 1. Categories
+    categories = scraper.get_categories()
+    print("First 3 categories:")
+    print(categories[:3])
 
-
-    # Get the ratios
-    data = scraper.fetch_ratios(
-        category_value="Equity: Large Cap", 
-        scheme_value="MiraE Asset Large Cap Gr", 
-        period="5"
+    # 2. Autocomplete
+    suggestions = scraper.suggest_funds(
+        query="Baroda BNP Paribas Multi Cap Reg Gr",
+        category="Equity: Multi Cap",
     )
+    print("\nSuggestions:")
+    print(suggestions)
 
-    print(data)
+    # 3. Fetch market capture data.
+    #    This now uses AdvisorKhoj parameters:
+    #    category + period + schemes
+    try:
+        data = scraper.fetch_ratios(
+            category_value="Equity: Multi Cap",
+            scheme_value="Baroda BNP Paribas Multi Cap Reg Gr",
+            period="10",
+        )
+        print("\nMarket Capture Data:")
+        print(data)
 
-# ########################################################
-#  Output data formats are as follows:
-# ########################################################
-
-# [{'value': 'Equity: Contra', 'label': 'Equity: Contra'}, {'value': 'Equity: Dividend Yield', 'label': 'Equity: Dividend Yield'}, {'value': 'Equity: ELSS', 'label': 'Equity: ELSS'}]
-# ['Mirae Asset Large Cap Dir Gr', 'Mirae Asset Large Cap Gr']
-# [{'Scheme Name': 'Mirae Asset Large Cap Gr', 'AMC Name': 'MiraeMF', 'Benchmark Name': 'Nifty 100 TRI', 'Launch Date': '01-04-2008', 'Scheme Return (%)': 6.03, 'Up Market Capture Ratio (%)': 90.0, 'Down Market Capture Ratio (%)': 94.0, 'Capture Ratio': 0.96}]
+    except FundDataError as exc:
+        print(f"\nERROR: {exc}")
