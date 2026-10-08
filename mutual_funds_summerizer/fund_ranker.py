@@ -1029,6 +1029,18 @@ if __name__ == "__main__":
         {
             "category": "Equity: Flexi Cap",
             "scheme": "ABSL Flexi Cap Gr Reg",
+        },
+        {
+            "category": "Hybrid: Equity SavIngs",
+            "scheme": "PGIM India Equity SavIngs Dir Gr",
+        },
+        {
+            "category": "Hybrid: Equity SavIngs",
+            "scheme": "Axis Equity Savings Fund Reg Gr",
+        },
+        {
+            "category": "Hybrid: Equity SavIngs",
+            "scheme": "DSP Equity SavIngs Reg Gr",
         }
         ]
 
