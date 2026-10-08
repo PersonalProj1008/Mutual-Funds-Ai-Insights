@@ -3,11 +3,63 @@ import json
 import os
 
 from openai import AsyncOpenAI
+from pydantic import BaseModel, Field, ValidationError
 
 
 class AIAnalyzerError(Exception):
     """Raised when AI analysis fails."""
     pass
+
+
+class RankingExplanation(BaseModel):
+    """Validates one ranking explanation after the AI response."""
+
+    preference: str
+    rank: int
+    scheme_name: str
+    reason: str
+
+
+class FlatAIAnalysis(BaseModel):
+    """
+    Depth-1 structured output.
+
+    Every model-output field is a scalar. The only serialized structure is
+    ranking_explanations_json, which is converted into the existing nested
+    application structure after validation.
+    """
+
+    overall_summary: str
+
+    defensive_winner: str
+    defensive_summary: str
+
+    balanced_winner: str
+    balanced_summary: str
+
+    growth_winner: str
+    growth_summary: str
+
+    capture_efficiency_winner: str
+    capture_efficiency_summary: str
+
+    historical_return_winner: str
+    historical_return_summary: str
+
+    ranking_explanations_json: str = Field(
+        description=(
+            "A valid JSON array encoded as a string. "
+            'Each item must contain "preference", "rank", '
+            '"scheme_name", and "reason".'
+        )
+    )
+
+    important_notes: str = Field(
+        description=(
+            "Important methodological notes separated by newline. "
+            "Do not use numbered prefixes."
+        )
+    )
 
 
 class AIAnalyzer:
@@ -57,10 +109,8 @@ class AIAnalyzer:
 
     async def analyze(self, funds, rankings, period):
         """
-        Generate a report-ready AI analysis.
-
-        Python is the source of truth for all ranks.
-        The model only explains and summarizes the supplied results.
+        Call the model with a depth-1 Pydantic schema and return the
+        same nested dictionary structure used by the report generator.
         """
 
         self._validate_inputs(funds, rankings, period)
@@ -71,10 +121,10 @@ class AIAnalyzer:
             period=period,
         )
 
-        result = await self._call_model(prompt)
+        ai_result = await self._call_model(prompt)
 
-        return self._validate_ai_result(
-            result=result,
+        return self._derive_current_structure(
+            ai_result=ai_result,
             rankings=rankings,
         )
 
@@ -88,12 +138,11 @@ comparison application.
 
 You are NOT the ranking engine.
 
-Python has already calculated the exact rankings. Your only job is to:
-- explain those rankings clearly,
-- compare the supplied funds,
-- summarize the main findings,
-- explain deterministic tie-breaks when they occur,
-- produce concise, polished text suitable for a professional PDF.
+Python has already calculated the exact rankings.
+Treat those rankings as immutable facts.
+
+Your job is to explain the supplied rankings and produce polished,
+professional report language.
 
 ============================================================
 ABSOLUTE RULES
@@ -101,28 +150,21 @@ ABSOLUTE RULES
 
 1. NEVER change a rank.
 2. NEVER invent, estimate, or recalculate missing fund data.
-3. NEVER substitute your own ranking logic for the Python ranking.
-4. Every explanation must correspond exactly to the supplied
-   preference + rank + scheme_name.
+3. NEVER substitute your own ranking logic for Python.
+4. Every ranking explanation must match the supplied
+   preference + rank + scheme_name exactly.
 5. Preserve fund names exactly as supplied.
 6. Use only the supplied metrics.
 7. A higher rank does NOT mean a fund is universally better.
-   It means it ranked better under that particular investor lens.
-8. Do not give personalized investment advice or tell the reader
-   what they should buy.
-9. Scheme Return is historical/backward-looking and must not be
-   presented as a forecast.
-10. Capture Spread is:
-       Up Market Capture - Down Market Capture
+8. Do not provide personalized investment advice.
+9. Scheme Return is historical/backward-looking and is not a forecast.
+10. Capture Spread = Up Market Capture - Down Market Capture.
     It is an APP-DEFINED comparative heuristic, not an official
     AdvisorKhoj metric.
 11. Capture Ratio is the supplied AdvisorKhoj metric.
-12. Do not confuse Down Market Capture with downside return itself.
-    Explain it as the supplied capture metric: lower is preferred
-    for the defensive lens.
-13. Avoid generic filler such as "this analysis evaluates..." when
-    writing the overall summary. The overall summary must describe
-    the actual findings.
+12. Do not confuse Down Market Capture with a fund's actual loss.
+13. Do not introduce unsupported metrics or qualitative claims.
+14. The numerical ranking is immutable.
 
 ============================================================
 INVESTOR LENSES
@@ -130,79 +172,65 @@ INVESTOR LENSES
 
 defensive:
     Label: Protect my downside
-    Primary criterion: lower Down Market Capture is better.
+    Primary rule: lower Down Market Capture is better.
 
 balanced:
     Label: Balance growth & protection
-    Primary criterion: higher Capture Spread is better.
-    Tie-breakers must follow the Python ranking data exactly.
+    Primary rule: higher Capture Spread is better.
     Capture Spread is app-defined.
+    Follow the supplied Python ranking criteria for tie-breakers.
 
 growth:
     Label: Maximize upside
-    Primary criterion: higher Up Market Capture is better.
+    Primary rule: higher Up Market Capture is better.
 
 capture_efficiency:
     Label: Maximize capture efficiency
-    Primary criterion: higher Capture Ratio is better.
+    Primary rule: higher Capture Ratio is better.
 
 historical_return:
     Label: Maximize historical returns
-    Primary criterion: higher Scheme Return is better.
-    This is historical and backward-looking.
+    Primary rule: higher Scheme Return is better.
+    This is backward-looking.
 
 ============================================================
-HOW TO HANDLE TIES
+TIE-BREAKING
 ============================================================
 
-This is critical.
+When multiple funds share the same primary metric, explicitly explain
+the deterministic secondary criterion used by Python.
 
-When two funds have the same primary metric, DO NOT stop at the
-primary metric.
+Never describe differently ranked funds as "tied for first".
 
-Use the exact ordering criteria supplied in each fund's
-"ranking_basis" and the ranking itself.
-
-For example, if two funds both have Capture Spread = 17.00 and one
-is ranked #1 while the other is #2, explicitly explain the
-secondary criterion that separates them.
-
-Do NOT write:
-"Fund A ranked first because both funds had the same spread."
-
-Instead write the actual deterministic reason, such as:
-"Both funds had a Capture Spread of 17.00, but Fund A ranked ahead
-because its Capture Ratio was higher (1.21 vs 1.19)."
-
-Only state a tiebreaker when it is supported by the supplied
-ranking data.
+Use only the supplied ranking basis and metric values when explaining
+a tie-break.
 
 ============================================================
 OVERALL SUMMARY
 ============================================================
 
-The overall_summary must be a genuine finding-oriented synthesis.
+Write 3-5 sentences describing the ACTUAL findings.
 
-It should:
-- identify the main cross-lens pattern,
-- identify which funds lead which lenses,
-- mention meaningful consistency or divergence across lenses,
-- mention when no single fund dominates every lens,
-- remain comparative rather than advisory.
+Identify:
+- major cross-lens patterns,
+- which funds lead which lenses,
+- meaningful consistency or divergence,
+- whether one fund dominates or different lenses favor different funds.
 
-Aim for 3-5 sentences.
-
-Do NOT merely describe what the application does.
+Do not write generic filler such as:
+"This analysis evaluates four mutual funds..."
 
 ============================================================
 PREFERENCE SUMMARIES
 ============================================================
 
 For each preference:
+- identify the actual rank #1 winner,
 - explain what the lens reveals,
-- identify the leading fund,
-- mention the most meaningful metric difference,
-- keep it to 2-4 sentences.
+- mention the most meaningful metric comparison,
+- use 2-4 sentences.
+
+The winner must exactly match rank #1 in the supplied Python ranking.
 
 ============================================================
 RANKING EXPLANATIONS
@@ -211,20 +239,45 @@ RANKING EXPLANATIONS
 Provide exactly one explanation for EVERY ranked fund under EVERY
 preference.
 
-Each reason should:
-- explain why that exact rank occurred,
-- quote the relevant numeric metric(s),
+Each explanation must:
+- contain the exact preference,
+- contain the exact rank,
+- contain the exact scheme name,
+- explain why that rank occurred,
+- cite the relevant metric(s),
 - explain a deterministic tie-break when applicable,
-- compare against the closest competing fund when helpful,
-- be concise (1-3 sentences),
-- never introduce unsupported claims.
+- be 1-3 sentences.
+
+The ranking_explanations_json field must contain valid JSON encoded
+as a STRING using exactly this internal structure:
+
+[
+  {{
+    "preference": "defensive",
+    "rank": 1,
+    "scheme_name": "Exact Fund Name",
+    "reason": "..."
+  }}
+]
 
 ============================================================
 IMPORTANT NOTES
 ============================================================
 
-Include useful methodological caveats, but do not repeat the same
-note unnecessarily.
+Return useful methodological caveats as newline-delimited notes.
+
+============================================================
+STRUCTURED OUTPUT CONSTRAINT
+============================================================
+
+The response schema is DEPTH 1.
+
+Every top-level field must be a scalar string.
+
+Do NOT create top-level arrays or nested objects.
+
+The only serialized structure is inside the scalar string field:
+ranking_explanations_json
 
 Period:
 {period} years
@@ -241,7 +294,7 @@ DETERMINISTIC RANKING DATA
 
 {json.dumps(ranking_data, indent=2, ensure_ascii=False)}
 
-Return ONLY JSON matching the supplied schema.
+Return only the requested structured output.
 """.strip()
 
     def _prepare_fund_data(self, funds):
@@ -266,14 +319,19 @@ Return ONLY JSON matching the supplied schema.
 
         for preference, ranked_funds in rankings.items():
             data[preference] = {
-                "label": self.PREFERENCES.get(
-                    preference,
-                    preference,
-                ),
-                "ranking_order": [],
+                "label": self.PREFERENCES[preference],
                 "criteria": [],
+                "ranking_order": [],
                 "funds": [],
             }
+
+            if ranked_funds:
+                basis = ranked_funds[0].get("ranking_basis")
+
+                if isinstance(basis, list):
+                    data[preference]["criteria"] = basis
+                elif basis:
+                    data[preference]["criteria"] = [basis]
 
             for item in ranked_funds:
                 data[preference]["ranking_order"].append({
@@ -293,91 +351,11 @@ Return ONLY JSON matching the supplied schema.
                     "capture_spread": item.get("capture_spread"),
                 })
 
-            if ranked_funds:
-                basis = ranked_funds[0].get("ranking_basis")
-
-                if isinstance(basis, list):
-                    data[preference]["criteria"] = basis
-                else:
-                    data[preference]["criteria"] = [basis]
-
         return data
 
     async def _call_model(self, prompt):
-        schema = {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "overall_summary": {
-                    "type": "string",
-                },
-                "preference_summaries": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "properties": {
-                            "preference": {
-                                "type": "string",
-                            },
-                            "winner": {
-                                "type": "string",
-                            },
-                            "summary": {
-                                "type": "string",
-                            },
-                        },
-                        "required": [
-                            "preference",
-                            "winner",
-                            "summary",
-                        ],
-                    },
-                },
-                "ranking_explanations": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "properties": {
-                            "preference": {
-                                "type": "string",
-                            },
-                            "rank": {
-                                "type": "integer",
-                            },
-                            "scheme_name": {
-                                "type": "string",
-                            },
-                            "reason": {
-                                "type": "string",
-                            },
-                        },
-                        "required": [
-                            "preference",
-                            "rank",
-                            "scheme_name",
-                            "reason",
-                        ],
-                    },
-                },
-                "important_notes": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                    },
-                },
-            },
-            "required": [
-                "overall_summary",
-                "preference_summaries",
-                "ranking_explanations",
-                "important_notes",
-            ],
-        }
-
         try:
-            response = await self.client.chat.completions.create(
+            response = await self.client.chat.completions.parse(
                 model=self.model,
                 temperature=0.2,
                 messages=[
@@ -385,8 +363,8 @@ Return ONLY JSON matching the supplied schema.
                         "role": "system",
                         "content": (
                             "You are a precise financial-analysis writer. "
-                            "Follow the supplied deterministic rankings "
-                            "exactly and never invent data."
+                            "Follow deterministic Python rankings exactly "
+                            "and never invent data."
                         ),
                     },
                     {
@@ -394,14 +372,7 @@ Return ONLY JSON matching the supplied schema.
                         "content": prompt,
                     },
                 ],
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "mutual_fund_analysis",
-                        "strict": True,
-                        "schema": schema,
-                    },
-                },
+                response_format=FlatAIAnalysis,
             )
         except Exception as exc:
             raise AIAnalyzerError(
@@ -409,29 +380,171 @@ Return ONLY JSON matching the supplied schema.
             ) from exc
 
         try:
-            content = response.choices[0].message.content
-            return json.loads(content)
-        except (
-            AttributeError,
-            IndexError,
-            KeyError,
-            TypeError,
-            json.JSONDecodeError,
-        ) as exc:
+            message = response.choices[0].message
+        except (AttributeError, IndexError) as exc:
             raise AIAnalyzerError(
-                "AI returned an unexpected or invalid response."
+                "AI returned an unexpected response structure."
             ) from exc
+
+        if getattr(message, "refusal", None):
+            raise AIAnalyzerError(
+                f"AI refused the request: {message.refusal}"
+            )
+
+        parsed = getattr(message, "parsed", None)
+
+        if parsed is None:
+            raise AIAnalyzerError(
+                "AI response could not be parsed into the Pydantic schema."
+            )
+
+        return parsed
+
+    def _derive_current_structure(self, ai_result, rankings):
+        explanations = self._parse_ranking_explanations(
+            ai_result.ranking_explanations_json
+        )
+
+        expected_pairs = set()
+
+        for preference, ranked_funds in rankings.items():
+            for ranked in ranked_funds:
+                expected_pairs.add((
+                    preference,
+                    int(ranked.get("rank")),
+                    ranked.get("scheme_name"),
+                ))
+
+        actual_pairs = set()
+
+        for item in explanations:
+            pair = (
+                item.preference,
+                item.rank,
+                item.scheme_name,
+            )
+
+            if pair in actual_pairs:
+                raise AIAnalyzerError(
+                    f"Duplicate ranking explanation returned: {pair}"
+                )
+
+            actual_pairs.add(pair)
+
+        if actual_pairs != expected_pairs:
+            missing = expected_pairs - actual_pairs
+            extra = actual_pairs - expected_pairs
+
+            raise AIAnalyzerError(
+                "AI ranking explanations do not exactly match the "
+                f"deterministic rankings. Missing: {missing}; Extra: {extra}"
+            )
+
+        expected_winners = {
+            preference: ranked_funds[0].get("scheme_name")
+            for preference, ranked_funds in rankings.items()
+        }
+
+        ai_winners = {
+            "defensive": ai_result.defensive_winner,
+            "balanced": ai_result.balanced_winner,
+            "growth": ai_result.growth_winner,
+            "capture_efficiency": ai_result.capture_efficiency_winner,
+            "historical_return": ai_result.historical_return_winner,
+        }
+
+        for preference, expected in expected_winners.items():
+            actual = ai_winners[preference]
+
+            if actual != expected:
+                raise AIAnalyzerError(
+                    f"AI winner mismatch for '{preference}': "
+                    f"expected '{expected}', got '{actual}'"
+                )
+
+        return {
+            "overall_summary": ai_result.overall_summary,
+            "preference_summaries": [
+                {
+                    "preference": "defensive",
+                    "winner": ai_result.defensive_winner,
+                    "summary": ai_result.defensive_summary,
+                },
+                {
+                    "preference": "balanced",
+                    "winner": ai_result.balanced_winner,
+                    "summary": ai_result.balanced_summary,
+                },
+                {
+                    "preference": "growth",
+                    "winner": ai_result.growth_winner,
+                    "summary": ai_result.growth_summary,
+                },
+                {
+                    "preference": "capture_efficiency",
+                    "winner": ai_result.capture_efficiency_winner,
+                    "summary": ai_result.capture_efficiency_summary,
+                },
+                {
+                    "preference": "historical_return",
+                    "winner": ai_result.historical_return_winner,
+                    "summary": ai_result.historical_return_summary,
+                },
+            ],
+            "ranking_explanations": [
+                {
+                    "preference": item.preference,
+                    "rank": item.rank,
+                    "scheme_name": item.scheme_name,
+                    "reason": item.reason,
+                }
+                for item in explanations
+            ],
+            "important_notes": self._parse_notes(
+                ai_result.important_notes
+            ),
+        }
+
+    def _parse_ranking_explanations(self, value):
+        try:
+            raw_items = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise AIAnalyzerError(
+                "ranking_explanations_json was not valid JSON."
+            ) from exc
+
+        if not isinstance(raw_items, list):
+            raise AIAnalyzerError(
+                "ranking_explanations_json must contain a JSON array."
+            )
+
+        parsed_items = []
+
+        for index, item in enumerate(raw_items, start=1):
+            try:
+                parsed_items.append(
+                    RankingExplanation.model_validate(item)
+                )
+            except ValidationError as exc:
+                raise AIAnalyzerError(
+                    f"Invalid ranking explanation at item {index}: {exc}"
+                ) from exc
+
+        return parsed_items
+
+    def _parse_notes(self, value):
+        return [
+            line.strip()
+            for line in value.splitlines()
+            if line.strip()
+        ]
 
     def _validate_inputs(self, funds, rankings, period):
         if not isinstance(funds, list) or not funds:
-            raise ValueError(
-                "funds must be a non-empty list."
-            )
+            raise ValueError("funds must be a non-empty list.")
 
         if not isinstance(rankings, dict) or not rankings:
-            raise ValueError(
-                "rankings must be a non-empty dictionary."
-            )
+            raise ValueError("rankings must be a non-empty dictionary.")
 
         period = str(period).strip()
 
@@ -462,113 +575,6 @@ Return ONLY JSON matching the supplied schema.
                     f"Ranking '{preference}' must contain funds."
                 )
 
-    def _validate_ai_result(self, result, rankings):
-        if not isinstance(result, dict):
-            raise AIAnalyzerError(
-                "AI result must be a dictionary."
-            )
-
-        required_keys = {
-            "overall_summary",
-            "preference_summaries",
-            "ranking_explanations",
-            "important_notes",
-        }
-
-        missing = required_keys - set(result.keys())
-
-        if missing:
-            raise AIAnalyzerError(
-                f"AI result is missing fields: {sorted(missing)}"
-            )
-
-        expected_pairs = set()
-
-        for preference, ranked_funds in rankings.items():
-            for ranked in ranked_funds:
-                expected_pairs.add((
-                    preference,
-                    int(ranked.get("rank")),
-                    ranked.get("scheme_name"),
-                ))
-
-        actual_pairs = set()
-
-        for item in result["ranking_explanations"]:
-            preference = item.get("preference")
-            rank = item.get("rank")
-            scheme_name = item.get("scheme_name")
-
-            if preference not in rankings:
-                raise AIAnalyzerError(
-                    f"AI returned unknown preference: {preference}"
-                )
-
-            try:
-                rank = int(rank)
-            except (TypeError, ValueError) as exc:
-                raise AIAnalyzerError(
-                    f"AI returned invalid rank: {rank}"
-                ) from exc
-
-            pair = (
-                preference,
-                rank,
-                scheme_name,
-            )
-
-            if pair in actual_pairs:
-                raise AIAnalyzerError(
-                    f"AI returned a duplicate explanation: {pair}"
-                )
-
-            actual_pairs.add(pair)
-
-        if actual_pairs != expected_pairs:
-            missing_pairs = expected_pairs - actual_pairs
-            extra_pairs = actual_pairs - expected_pairs
-
-            raise AIAnalyzerError(
-                "AI ranking explanations do not exactly match the "
-                f"deterministic rankings. Missing: {missing_pairs}; "
-                f"Extra: {extra_pairs}"
-            )
-
-        expected_preferences = set(rankings.keys())
-        actual_preferences = {
-            item.get("preference")
-            for item in result["preference_summaries"]
-        }
-
-        if actual_preferences != expected_preferences:
-            raise AIAnalyzerError(
-                "AI preference summaries do not cover exactly the "
-                "same preferences as the deterministic rankings."
-            )
-
-        expected_winners = {
-            preference: ranked_funds[0].get("scheme_name")
-            for preference, ranked_funds in rankings.items()
-        }
-
-        for item in result["preference_summaries"]:
-            preference = item.get("preference")
-            winner = item.get("winner")
-
-            if preference not in expected_winners:
-                raise AIAnalyzerError(
-                    f"AI returned unknown preference summary: {preference}"
-                )
-
-            if winner != expected_winners[preference]:
-                raise AIAnalyzerError(
-                    f"AI winner mismatch for '{preference}': "
-                    f"expected '{expected_winners[preference]}', "
-                    f"got '{winner}'"
-                )
-
-        return result
-
 
 # async def main():
 #     analyzer = AIAnalyzer(
@@ -588,6 +594,3 @@ Return ONLY JSON matching the supplied schema.
 #     print(f"Model: {analyzer.model}")
 #     print(f"Base URL: {analyzer.client.base_url}")
 
-
-# if __name__ == "__main__":
-#     asyncio.run(main())

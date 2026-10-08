@@ -250,8 +250,8 @@ class ReportGenerator:
             rightMargin=15 * mm,
             topMargin=19 * mm,
             bottomMargin=17 * mm,
-            title="Axiom Wealth | Mutual Fund Comparative Analysis",
-            author="Axiom Wealth",
+            title="Principle Wealth | Mutual Fund Comparative Analysis",
+            author="Principle Wealth",
             subject="Institutional-style mutual fund comparative analysis",
         )
 
@@ -533,7 +533,7 @@ class ReportGenerator:
             canvas.drawString(
                 document.leftMargin,
                 self.PAGE_HEIGHT - 9.5 * mm,
-                "AXIOM WEALTH",
+                "PRINCIPLE WEALTH",
             )
 
             canvas.setFont("Helvetica", 6.8)
@@ -577,7 +577,7 @@ class ReportGenerator:
         story = [
             Spacer(1, 4 * mm),
             Paragraph(
-                "AXIOM WEALTH  /  INVESTMENT RESEARCH",
+                "PRINCIPLE WEALTH  /  INVESTMENT RESEARCH",
                 self.styles["cover_kicker"],
             ),
             Paragraph(
