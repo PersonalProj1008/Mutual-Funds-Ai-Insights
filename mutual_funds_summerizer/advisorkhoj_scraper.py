@@ -415,6 +415,100 @@ class MarketCaptureScraper:
 
         return query
 
+def get_funds_with_category(new_line_seperated_fund_names):
+
+    CATEGORY_MAP = {
+        "Contra": "Equity: Contra",
+        "Dividend Yield": "Equity: Dividend Yield",
+        "ELSS": "Equity: ELSS",
+        "Flexi Cap": "Equity: Flexi Cap",
+        "Focused": "Equity: Focused",
+        "Large and Mid Cap": "Equity: Large and Mid Cap",
+        "Large & Mid Cap": "Equity: Large and Mid Cap",
+        "Large Cap": "Equity: Large Cap",
+        "Mid Cap": "Equity: Mid Cap",
+        "Multi Cap": "Equity: Multi Cap",
+
+        "Banking And Fin Services": (
+            "Equity: Sectoral-Banking and Financial Services"
+        ),
+        "FMCG": "Equity: Sectoral-FMCG",
+        "Infrastructure": "Equity: Sectoral-Infrastructure",
+        "Pharma and Healthcare": "Equity: Sectoral-Pharma and Healthcare",
+        "Technology": "Equity: Sectoral-Technology",
+
+        "Small Cap": "Equity: Small Cap",
+
+        "Consumption": "Equity: Thematic-Consumption",
+        "Energy": "Equity: Thematic-Energy",
+        "ESG": "Equity: Thematic-ESG",
+        "International": "Equity: Thematic-International",
+        "Manufacturing": "Equity: Thematic-Manufacturing",
+        "MNC": "Equity: Thematic-MNC",
+        "Others": "Equity: Thematic-Others",
+        "PSU": "Equity: Thematic-PSU",
+        "Quantitative": "Equity: Thematic-Quantitative",
+        "Transportation": "Equity: Thematic-Transportation",
+
+        "Value": "Equity: Value",
+
+        "Aggressive": "Hybrid: Aggressive",
+        "Arbitrage": "Hybrid: Arbitrage",
+        "Conservative": "Hybrid: Conservative",
+        "Dynamic Asset Allocation": (
+            "Hybrid: Dynamic Asset Allocation"
+        ),
+        "others":"Equity: Thematic-Others",
+        "Equity Savings": "Hybrid: Equity Savings",
+        "Multi Asset Allocation": "Hybrid: Multi Asset Allocation",
+    }
+
+    list_of_pasted_funds = [
+        line.strip()
+        for line in new_line_seperated_fund_names.splitlines()
+        if line.strip()
+    ]
+
+    if len(list_of_pasted_funds) < 2 or len(list_of_pasted_funds) > 10:
+        raise Exception("Please provide between 2 and 10 mutual funds.")
+
+    new_selected_funds_with_category = []
+
+    # Check longer / more specific category names first
+    categories = sorted(
+        CATEGORY_MAP.keys(),
+        key=len,
+        reverse=True
+    )
+
+    for a_fund in list_of_pasted_funds:
+
+        fund_lower = a_fund.lower()
+        matched_category = None
+
+        for a_category in categories:
+
+            if a_category.lower() in fund_lower:
+                matched_category = CATEGORY_MAP[a_category]
+                break
+
+        if matched_category is None:
+            new_selected_funds_with_category.append(
+                {
+                    "category": CATEGORY_MAP["Others"],
+                    "scheme": a_fund,
+                }
+            )
+            continue
+            
+        new_selected_funds_with_category.append(
+            {
+                "category": matched_category,
+                "scheme": a_fund,
+            }
+        )
+
+    return new_selected_funds_with_category
 
 # ================================================================
 # EXAMPLE USAGE
