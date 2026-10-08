@@ -78,7 +78,7 @@ class AIAnalyzer:
         api_key,
         base_url,
         model,
-        app_name="Principle Wealth",
+        app_name="Canon Wealth",
         app_url=None,
     ):
         if not api_key:
@@ -591,7 +591,7 @@ Return only the requested structured output.
 #             "OPENROUTER_MODEL",
 #             "google/gemini-3.1-flash-lite",
 #         ),
-#         app_name="Principle Wealth",
+#         app_name="Canon Wealth",
 #     )
 
 #     print("AIAnalyzer initialized successfully.")

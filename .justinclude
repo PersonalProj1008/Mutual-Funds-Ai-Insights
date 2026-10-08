@@ -1,0 +1,14 @@
+mfs_server\__init__.py
+mfs_server\main.py
+mfs_server\schemas.py
+mfs_server\templates\index.html
+
+mutual_funds_summerizer\__init__.py
+mutual_funds_summerizer\advisorkhoj_scraper.py
+mutual_funds_summerizer\ai_analyzer.py
+mutual_funds_summerizer\fund_ranker.py
+mutual_funds_summerizer\report_generator.py
+
+
+Readme.md
+requirements.txt

@@ -250,8 +250,8 @@ class ReportGenerator:
             rightMargin=15 * mm,
             topMargin=19 * mm,
             bottomMargin=17 * mm,
-            title="Principle Wealth | Mutual Fund Comparative Analysis",
-            author="Principle Wealth",
+            title="Canon Wealth | Mutual Fund Comparative Analysis",
+            author="Canon Wealth",
             subject="Institutional-style mutual fund comparative analysis",
         )
 
@@ -533,7 +533,7 @@ class ReportGenerator:
             canvas.drawString(
                 document.leftMargin,
                 self.PAGE_HEIGHT - 9.5 * mm,
-                "PRINCIPLE WEALTH",
+                "CANON WEALTH",
             )
 
             canvas.setFont("Helvetica", 6.8)
@@ -577,7 +577,7 @@ class ReportGenerator:
         story = [
             Spacer(1, 4 * mm),
             Paragraph(
-                "PRINCIPLE WEALTH  /  INVESTMENT RESEARCH",
+                "CANON WEALTH  /  INVESTMENT RESEARCH",
                 self.styles["cover_kicker"],
             ),
             Paragraph(
