@@ -1,4 +1,4 @@
-# Principle Wealth — Mutual Fund Comparative Analysis
+# Canon Wealth — Mutual Fund Comparative Analysis
 
 AI-assisted mutual fund comparison platform designed to turn historical market-capture data into a structured, transparent, investor-friendly comparative report.
 
@@ -45,7 +45,7 @@ The application supports comparison of **2 to 10 mutual fund schemes** over a se
 
 # Overview
 
-Principle Wealth Mutual Fund Comparative Analysis is a rules-based comparison application with an AI-assisted interpretation layer.
+Canon Wealth Mutual Fund Comparative Analysis is a rules-based comparison application with an AI-assisted interpretation layer.
 
 A user selects mutual funds using either:
 
@@ -1192,7 +1192,7 @@ It supports:
 - 1 / 3 / 5 / 10 year periods
 - responsive layout
 - animated gradient background
-- animated Principle Wealth splash screen
+- animated Canon Wealth splash screen
 - starfield visual effects
 - progress messaging
 - PDF generation
