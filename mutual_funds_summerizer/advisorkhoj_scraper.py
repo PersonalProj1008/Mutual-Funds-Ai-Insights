@@ -420,33 +420,33 @@ class MarketCaptureScraper:
 # EXAMPLE USAGE
 # ================================================================
 
-if __name__ == "__main__":
-    scraper = MarketCaptureScraper()
+# if __name__ == "__main__":
+#     scraper = MarketCaptureScraper()
 
-    # 1. Categories
-    categories = scraper.get_categories()
-    print("First 3 categories:")
-    print(categories[:3])
+#     # 1. Categories
+#     categories = scraper.get_categories()
+#     print("First 3 categories:")
+#     print(categories[:3])
 
-    # 2. Autocomplete
-    suggestions = scraper.suggest_funds(
-        query="Baroda BNP Paribas Multi Cap Reg Gr",
-        category="Equity: Multi Cap",
-    )
-    print("\nSuggestions:")
-    print(suggestions)
+#     # 2. Autocomplete
+#     suggestions = scraper.suggest_funds(
+#         query="Baroda BNP Paribas Multi Cap Reg Gr",
+#         category="Equity: Multi Cap",
+#     )
+#     print("\nSuggestions:")
+#     print(suggestions)
 
-    # 3. Fetch market capture data.
-    #    This now uses AdvisorKhoj parameters:
-    #    category + period + schemes
-    try:
-        data = scraper.fetch_ratios(
-            category_value="Equity: Multi Cap",
-            scheme_value="Baroda BNP Paribas Multi Cap Reg Gr",
-            period="10",
-        )
-        print("\nMarket Capture Data:")
-        print(data)
+#     # 3. Fetch market capture data.
+#     #    This now uses AdvisorKhoj parameters:
+#     #    category + period + schemes
+#     try:
+#         data = scraper.fetch_ratios(
+#             category_value="Equity: Multi Cap",
+#             scheme_value="Baroda BNP Paribas Multi Cap Reg Gr",
+#             period="10",
+#         )
+#         print("\nMarket Capture Data:")
+#         print(data)
 
-    except FundDataError as exc:
-        print(f"\nERROR: {exc}")
+#     except FundDataError as exc:
+#         print(f"\nERROR: {exc}")

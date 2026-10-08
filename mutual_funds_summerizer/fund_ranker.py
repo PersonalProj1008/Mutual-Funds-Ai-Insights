@@ -1002,186 +1002,186 @@ def rank_all_preferences(
 # EXAMPLE SCENERIO
 # ================================================================
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    from advisorkhoj_scraper import MarketCaptureScraper
+#     from advisorkhoj_scraper import MarketCaptureScraper
 
-    scraper = MarketCaptureScraper()
-    ranker = FundRanker()
+#     scraper = MarketCaptureScraper()
+#     ranker = FundRanker()
 
-    # ------------------------------------------------------------
-    # Select real funds from AdvisorKhoj
-    # ------------------------------------------------------------
+#     # ------------------------------------------------------------
+#     # Select real funds from AdvisorKhoj
+#     # ------------------------------------------------------------
 
-    selected_funds = [
-        {
-            "category": "Equity: Large Cap",
-            "scheme": "Mirae Asset Large Cap Gr",
-        },
-        {
-            "category": "Equity: Multi Cap",
-            "scheme": "Baroda Multi Cap Plan B Dir Gr",
-        },
-        {
-            "category": "Equity: Multi Cap",
-            "scheme": "ICICI Pru Multi Cap Fund Dir Gr",
-        },
-        {
-            "category": "Equity: Flexi Cap",
-            "scheme": "ABSL Flexi Cap Gr Reg",
-        },
-        {
-            "category": "Hybrid: Equity SavIngs",
-            "scheme": "PGIM India Equity SavIngs Dir Gr",
-        },
-        {
-            "category": "Hybrid: Equity SavIngs",
-            "scheme": "Axis Equity Savings Fund Reg Gr",
-        },
-        {
-            "category": "Hybrid: Equity SavIngs",
-            "scheme": "DSP Equity SavIngs Reg Gr",
-        }
-        ]
+#     selected_funds = [
+#         {
+#             "category": "Equity: Large Cap",
+#             "scheme": "Mirae Asset Large Cap Gr",
+#         },
+#         {
+#             "category": "Equity: Multi Cap",
+#             "scheme": "Baroda Multi Cap Plan B Dir Gr",
+#         },
+#         {
+#             "category": "Equity: Multi Cap",
+#             "scheme": "ICICI Pru Multi Cap Fund Dir Gr",
+#         },
+#         {
+#             "category": "Equity: Flexi Cap",
+#             "scheme": "ABSL Flexi Cap Gr Reg",
+#         },
+#         {
+#             "category": "Hybrid: Equity SavIngs",
+#             "scheme": "PGIM India Equity SavIngs Dir Gr",
+#         },
+#         {
+#             "category": "Hybrid: Equity SavIngs",
+#             "scheme": "Axis Equity Savings Fund Reg Gr",
+#         },
+#         {
+#             "category": "Hybrid: Equity SavIngs",
+#             "scheme": "DSP Equity SavIngs Reg Gr",
+#         }
+#         ]
 
-    period = "3"
+#     period = "3"
 
-    # ------------------------------------------------------------
-    # Fetch REAL AdvisorKhoj data
-    # ------------------------------------------------------------
+#     # ------------------------------------------------------------
+#     # Fetch REAL AdvisorKhoj data
+#     # ------------------------------------------------------------
 
-    print()
-    print("=" * 70)
-    print("FETCHING ADVISORKHOJ DATA")
-    print("=" * 70)
+#     print()
+#     print("=" * 70)
+#     print("FETCHING ADVISORKHOJ DATA")
+#     print("=" * 70)
 
-    try:
+#     try:
 
-        funds = scraper.fetch_multiple_ratios(
-            funds=selected_funds,
-            period=period,
-        )
+#         funds = scraper.fetch_multiple_ratios(
+#             funds=selected_funds,
+#             period=period,
+#         )
 
-    except Exception as exc:
+#     except Exception as exc:
 
-        print()
-        print("ERROR:")
-        print(exc)
+#         print()
+#         print("ERROR:")
+#         print(exc)
 
-        raise SystemExit(1)
+#         raise SystemExit(1)
 
-    # ------------------------------------------------------------
-    # Display fetched data
-    # ------------------------------------------------------------
+#     # ------------------------------------------------------------
+#     # Display fetched data
+#     # ------------------------------------------------------------
 
-    print()
+#     print()
 
-    for fund in funds:
+#     for fund in funds:
 
-        print(
-            f"Scheme Name    : "
-            f"{fund['scheme_name']}"
-        )
+#         print(
+#             f"Scheme Name    : "
+#             f"{fund['scheme_name']}"
+#         )
 
-        print(
-            f"AMC Name       : "
-            f"{fund['amc_name']}"
-        )
+#         print(
+#             f"AMC Name       : "
+#             f"{fund['amc_name']}"
+#         )
 
-        print(
-            f"Benchmark      : "
-            f"{fund['benchmark_name']}"
-        )
+#         print(
+#             f"Benchmark      : "
+#             f"{fund['benchmark_name']}"
+#         )
 
-        print(
-            f"Scheme Return  : "
-            f"{fund['scheme_return']:.2f}%"
-        )
+#         print(
+#             f"Scheme Return  : "
+#             f"{fund['scheme_return']:.2f}%"
+#         )
 
-        print(
-            f"Up Capture     : "
-            f"{fund['up_capture']:.2f}%"
-        )
+#         print(
+#             f"Up Capture     : "
+#             f"{fund['up_capture']:.2f}%"
+#         )
 
-        print(
-            f"Down Capture   : "
-            f"{fund['down_capture']:.2f}%"
-        )
+#         print(
+#             f"Down Capture   : "
+#             f"{fund['down_capture']:.2f}%"
+#         )
 
-        print(
-            f"Capture Ratio  : "
-            f"{fund['capture_ratio']:.2f}"
-        )
+#         print(
+#             f"Capture Ratio  : "
+#             f"{fund['capture_ratio']:.2f}"
+#         )
 
-        print()
+#         print()
 
-    # ------------------------------------------------------------
-    # Generate rankings for ALL investor preferences
-    # ------------------------------------------------------------
+#     # ------------------------------------------------------------
+#     # Generate rankings for ALL investor preferences
+#     # ------------------------------------------------------------
 
-    print()
-    print("=" * 70)
-    print("GENERATING RANKINGS")
-    print("=" * 70)
+#     print()
+#     print("=" * 70)
+#     print("GENERATING RANKINGS")
+#     print("=" * 70)
 
-    all_rankings = ranker.rank_all_preferences(
-        funds
-    )
+#     all_rankings = ranker.rank_all_preferences(
+#         funds
+#     )
 
-    # ------------------------------------------------------------
-    # Display each ranking
-    # ------------------------------------------------------------
+#     # ------------------------------------------------------------
+#     # Display each ranking
+#     # ------------------------------------------------------------
 
-    for preference in ranker.PREFERENCES:
+#     for preference in ranker.PREFERENCES:
 
-        print()
-        print("=" * 70)
+#         print()
+#         print("=" * 70)
 
-        print(
-            ranker.PREFERENCE_LABELS[
-                preference
-            ]
-        )
+#         print(
+#             ranker.PREFERENCE_LABELS[
+#                 preference
+#             ]
+#         )
 
-        print("=" * 70)
+#         print("=" * 70)
 
-        ranking = all_rankings[preference]
+#         ranking = all_rankings[preference]
 
-        for fund in ranking:
+#         for fund in ranking:
 
-            print(
-                f"{fund['rank']}. "
-                f"{fund['scheme_name']}"
-            )
+#             print(
+#                 f"{fund['rank']}. "
+#                 f"{fund['scheme_name']}"
+#             )
 
-            print(
-                f"   Scheme Return  : "
-                f"{fund['scheme_return']:.2f}%"
-            )
+#             print(
+#                 f"   Scheme Return  : "
+#                 f"{fund['scheme_return']:.2f}%"
+#             )
 
-            print(
-                f"   Up Capture     : "
-                f"{fund['up_capture']:.2f}%"
-            )
+#             print(
+#                 f"   Up Capture     : "
+#                 f"{fund['up_capture']:.2f}%"
+#             )
 
-            print(
-                f"   Down Capture   : "
-                f"{fund['down_capture']:.2f}%"
-            )
+#             print(
+#                 f"   Down Capture   : "
+#                 f"{fund['down_capture']:.2f}%"
+#             )
 
-            print(
-                f"   Capture Ratio  : "
-                f"{fund['capture_ratio']:.2f}"
-            )
+#             print(
+#                 f"   Capture Ratio  : "
+#                 f"{fund['capture_ratio']:.2f}"
+#             )
 
-            print(
-                f"   Capture Spread : "
-                f"{fund['capture_spread']:.2f}"
-            )
+#             print(
+#                 f"   Capture Spread : "
+#                 f"{fund['capture_spread']:.2f}"
+#             )
 
-            print(
-                f"   Ranking Basis  : "
-                f"{fund['ranking_basis']['display']}"
-            )
+#             print(
+#                 f"   Ranking Basis  : "
+#                 f"{fund['ranking_basis']['display']}"
+#             )
 
-            print()
+#             print()
